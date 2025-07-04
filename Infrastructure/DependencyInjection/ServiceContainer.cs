@@ -1,5 +1,7 @@
 ﻿using Application.Extension.Identity;
+using Application.Interface.Identity;
 using Infrastructure.DataAccess;
+using Infrastructure.Repository;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -11,7 +13,8 @@ namespace Infrastructure.DependencyInjection
     {
         public static IServiceCollection AddInfrastructureService(this IServiceCollection services, IConfiguration config)
         {
-            services.AddDbContext<AppDbContext>(options => options.UseSqlServer(config.GetConnectionString("Default")), ServiceLifetime.Scoped);
+            services.AddDbContext<AppDbContext>(o => o.UseSqlServer(config.GetConnectionString("DefaultConnection")), ServiceLifetime.Scoped);
+
             services.AddAuthentication(options =>
             {
                 options.DefaultScheme = IdentityConstants.ApplicationScheme;
@@ -33,6 +36,8 @@ namespace Infrastructure.DependencyInjection
                     adp.RequireAuthenticatedUser();
                     adp.RequireRole("User");
                 });
+
+            //services.AddScoped<IAccount, Account>();
             return services;
         }
     }

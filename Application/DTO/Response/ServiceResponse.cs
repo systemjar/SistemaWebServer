@@ -1,4 +1,4 @@
 ﻿namespace Application.DTO.Response
 {
-    public class ServiceResponse(bool Flag, string Message);
+    public record ServiceResponse(bool Flag, string Message);
 }
