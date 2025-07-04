@@ -4,7 +4,6 @@ using Application.DTO.Response.Identity;
 using Application.Extension.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Identity.Client;
 using System.Security.Claims;
 
@@ -42,9 +41,10 @@ namespace Infrastructure.Repository
         private async Task<ServiceResponse> CreateUserClaims(CreateUserRequestDTO model)
         {
             if (string.IsNullOrEmpty(model.Policy))
-                return new ServiceResponse(false, "");
+                return new ServiceResponse(false, "No plicy specified");
 
             Claim[] userClaims = [];
+
             if (model.Policy.Equals(Policy.AdminPolicy, StringComparison.OrdinalIgnoreCase))
             {
                 userClaims =
@@ -89,6 +89,7 @@ namespace Infrastructure.Repository
             }
 
             var result = CheckResult(await userManager.AddClaimsAsync((await FindUserByEmail(model.Email)), userClaims));
+
             if (result.Flag)
                 return new ServiceResponse(true, "User Created");
             else
@@ -101,11 +102,11 @@ namespace Infrastructure.Repository
             if (user == null)
                 return new ServiceResponse(false, "User not found");
 
-            var verifyPassword = await singInManager.PasswordSignInAsync(user, model.Password, false);
+            var verifyPassword = await signInManager.CheckPasswordSignInAsync(user, model.Password, false);
             if (verifyPassword.Succeeded)
                 return new ServiceResponse(false, "Incorrect credentials provided");
 
-            var result = await singInManager.PasswordSingInAsync(user, model.Password, false, false);
+            var result = await signInManager.PasswordSignInAsync(user, model.Password, false, false);
             if (!result.Succeeded)
                 //return new ServiceResponse(false, result.Message);
                 return new ServiceResponse(false, "Unknown error occured while loggin you in");
@@ -117,7 +118,7 @@ namespace Infrastructure.Repository
             => await userManager.FindByEmailAsync(email);
 
         private async Task<ApplicationUser> FindUserById(string id)
-            => await userManager.FindUserByIdAsync(id);
+            => await userManager.FindByIdAsync(id);
 
         private static ServiceResponse CheckResult(IdentityResult result)
         {
@@ -125,21 +126,21 @@ namespace Infrastructure.Repository
                 return new ServiceResponse(true, null);
 
             var errors = result.Errors.Select(_ => _.Description);
-            return new ServiceResponse(false, string.Join(Environment.NewLine, errors));
+            return new ServiceResponse(false, string.Join(System.Environment.NewLine, errors));
         }
 
-        public async Task<IEnumerable<GetUserWithClaimResponseDTO>> GetUserWithClaimsAsync()
+        public async Task<IEnumerable<GetUserWithClaimResponseDTO>> GetUsersWithClaimsAsync()
         {
             var UserList = new List<GetUserWithClaimResponseDTO>();
             var allUsers = await userManager.Users.ToListAsync();
             if (allUsers.Count == 0)
                 return UserList;
+
             foreach (var user in allUsers)
             {
                 var currentUser = await userManager.FindByIdAsync(user.Id);
                 var getCurrentUserClaims = await userManager.GetClaimsAsync(currentUser);
                 if (getCurrentUserClaims.Any())
-                {
                     UserList.Add(new GetUserWithClaimResponseDTO()
                     {
                         UserId = user.Id,
@@ -152,8 +153,8 @@ namespace Infrastructure.Repository
                         Update = Convert.ToBoolean(getCurrentUserClaims.FirstOrDefault(_ => _.Type == "Update").Value),
                         Delete = Convert.ToBoolean(getCurrentUserClaims.FirstOrDefault(_ => _.Type == "Delete").Value)
                     });
-                }
             }
+            return UserList;
         }
 
         public async Task SetUpAsync() => await CreateUserAsync(new CreateUserRequestDTO()
@@ -180,7 +181,7 @@ namespace Infrastructure.Repository
                 new Claim("Read", model.Read.ToString()),
                 new Claim("Update", model.Update.ToString()),
                 new Claim("Delete", model.Delete.ToString()),
-                new Claim("ManageUser", model.ManageUser.ToString()),
+                new Claim("ManageUser", model.ManageUser.ToString())
             ];
 
             var result = await userManager.RemoveClaimsAsync(user, oldUserClaims);
@@ -189,13 +190,12 @@ namespace Infrastructure.Repository
             if (!response.Flag)
                 return new ServiceResponse(false, response.Message);
 
-            var addNewClaims = await userManager.GetClaimsAsync(user, newUserClaims);
+            var addNewClaims = await userManager.AddClaimsAsync(user, newUserClaims);
             var outcome = CheckResult(addNewClaims);
             if (outcome.Flag)
                 return new ServiceResponse(true, "User updated");
             else
                 return outcome;
-            
         }
     }
 }

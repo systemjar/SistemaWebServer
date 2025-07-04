@@ -3,11 +3,11 @@ using WebUI.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddInfrastructureService(builder.Configuration);
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
-
-builder.Services.AddInfrastructureService(builder.Configuration);
 
 var app = builder.Build();
 
